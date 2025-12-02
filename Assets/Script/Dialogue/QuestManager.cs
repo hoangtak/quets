@@ -2,6 +2,13 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+public enum QuestType 
+{ 
+    Dialogue,    // Nói chuyện NPC
+    Kill,        // Tiêu diệt quái
+    Collect      // Thu thập vật phẩm
+}
+
 public enum QuestState 
 { 
     NotStarted = 0,
@@ -13,18 +20,24 @@ public enum QuestState
 }
 
 [System.Serializable]
-public class Quest
+public class QuestData
 {
     public string questID;
+    public QuestType type;
     public QuestState state;
+    
+    // Cho quest Kill và Collect
+    public int currentCount;  // Số lượng hiện tại
+    public int targetCount;   // Mục tiêu cần đạt
+    public string targetName; // Tên quái/vật phẩm
 }
 
 public class QuestManager : MonoBehaviour
 {
     public static QuestManager Instance;
 
-    // Dictionary để lưu tất cả quest
-    private Dictionary<string, QuestState> questStates = new Dictionary<string, QuestState>();
+    // Dictionary lưu tất cả quest
+    private Dictionary<string, QuestData> quests = new Dictionary<string, QuestData>();
 
     private void Awake()
     {
@@ -39,61 +52,199 @@ public class QuestManager : MonoBehaviour
         }
     }
 
-    // Khởi tạo quest
-    public void InitQuest(string questID)
+    // ========== KHỞI TẠO QUEST ==========
+    
+public void InitQuest(string questID, QuestType type = QuestType.Dialogue)
+{
+    if (!quests.ContainsKey(questID))
     {
-        if (!questStates.ContainsKey(questID))
+        quests[questID] = new QuestData
         {
-            questStates[questID] = QuestState.NotStarted;
-            Debug.Log($"[Quest] Initialized quest: {questID}");
+            questID = questID,
+            type = type,
+            state = QuestState.NotStarted,
+            currentCount = 0,
+            targetCount = 0
+        };
+        Debug.Log($"[Quest] Initialized: {questID} (Type: {type})");
+    }
+    else
+    {
+        // ✅ THÊM: Cập nhật type nếu quest đã tồn tại
+        if (quests[questID].type != type)
+        {
+            Debug.Log($"[Quest] Updating {questID} type: {quests[questID].type} → {type}");
+            quests[questID].type = type;
         }
     }
+}
 
-    // Bắt đầu quest
+    // ========== DIALOGUE QUEST (GIỮ NGUYÊN) ==========
+    
     public void StartQuest(string questID)
     {
         InitQuest(questID);
         
-        if (questStates[questID] == QuestState.NotStarted)
+        if (quests[questID].state == QuestState.NotStarted)
         {
-            questStates[questID] = QuestState.InProgress;
+            quests[questID].state = QuestState.InProgress;
             Debug.Log($"[Quest] Started: {questID} → State = 1");
         }
     }
 
-    // Cập nhật state của quest
     public void SetQuestState(string questID, int newState)
     {
         InitQuest(questID);
-        
-        questStates[questID] = (QuestState)newState;
+        quests[questID].state = (QuestState)newState;
         Debug.Log($"[Quest] {questID} → State = {newState}");
     }
 
-    // Hoàn thành quest
-    public void CompleteQuest(string questID)
-    {
-        InitQuest(questID);
-        
-        questStates[questID] = QuestState.Completed;
-        Debug.Log($"[Quest] Completed: {questID}");
-    }
-
-    // Lấy state của quest (cho Ink)
     public int GetQuestState(string questID)
     {
         InitQuest(questID);
-        return (int)questStates[questID];
+        return (int)quests[questID].state;
     }
 
-    // Hiển thị UI quest
+    // ========== KILL QUEST (MỚI) ==========
+    
+    public void StartKillQuest(string questID, string enemyName, int targetCount)
+    {
+        InitQuest(questID, QuestType.Kill);
+        
+        quests[questID].state = QuestState.InProgress;
+        quests[questID].targetName = enemyName;
+        quests[questID].targetCount = targetCount;
+        quests[questID].currentCount = 0;
+        
+        ShowQuestUI($"Tiêu diệt {enemyName}: 0/{targetCount}");
+        Debug.Log($"[Quest] Kill Quest Started: {questID} - Kill {targetCount} {enemyName}");
+    }
+
+    public void OnEnemyKilled(string enemyName)
+    {
+        foreach (var quest in quests.Values)
+        {
+            if (quest.type == QuestType.Kill && 
+                quest.state == QuestState.InProgress && 
+                quest.targetName == enemyName)
+            {
+                quest.currentCount++;
+                
+                ShowQuestUI($"Tiêu diệt {enemyName}: {quest.currentCount}/{quest.targetCount}");
+                Debug.Log($"[Quest] Enemy killed: {quest.currentCount}/{quest.targetCount}");
+                
+                // Kiểm tra hoàn thành
+                if (quest.currentCount >= quest.targetCount)
+                {
+                    quest.state = QuestState.WaitingReport;
+                    ShowQuestUI($"Đã tiêu diệt đủ! Quay lại báo cáo NPC");
+                }
+            }
+        }
+    }
+
+    // ========== COLLECT QUEST (MỚI) ==========
+    
+    public void StartCollectQuest(string questID, string itemName, int targetCount)
+    {
+        InitQuest(questID, QuestType.Collect);
+        
+        quests[questID].state = QuestState.InProgress;
+        quests[questID].targetName = itemName;
+        quests[questID].targetCount = targetCount;
+        quests[questID].currentCount = 0;
+        
+        ShowQuestUI($"Thu thập {itemName}: 0/{targetCount}");
+        Debug.Log($"[Quest] Collect Quest Started: {questID} - Collect {targetCount} {itemName}");
+    }
+
+public void OnItemCollected(string itemName)
+{
+    Debug.Log($"[Quest] OnItemCollected called: '{itemName}'");
+    
+    foreach (var quest in quests.Values)
+    {
+        Debug.Log($"[Quest] Checking {quest.questID}: Type={quest.type}, State={quest.state}, Target='{quest.targetName}'");
+        
+        if (quest.type == QuestType.Collect && 
+            quest.state == QuestState.InProgress && 
+            quest.targetName == itemName)
+        {
+            quest.currentCount++;
+            
+            Debug.Log($"[Quest] ✅ MATCH! {quest.questID}: {quest.currentCount}/{quest.targetCount}");
+            
+            ShowQuestUI($"Thu thập {itemName}: {quest.currentCount}/{quest.targetCount}");
+            
+            if (quest.currentCount >= quest.targetCount)
+            {
+                quest.state = QuestState.WaitingReport;
+                Debug.Log($"[Quest] 🎉 {quest.questID} COMPLETED! State → 2");
+                ShowQuestUI($"Đã thu thập đủ! Quay lại báo cáo NPC");
+            }
+            return; // Thoát ngay khi tìm thấy
+        }
+    }
+    
+    Debug.LogWarning($"[Quest] ❌ No matching quest found for item: '{itemName}'");
+}
+
+    // ========== QUEST PROGRESS (MỚI) ==========
+    
+    public int GetQuestProgress(string questID)
+    {
+        if (quests.ContainsKey(questID))
+        {
+            return quests[questID].currentCount;
+        }
+        return 0;
+    }
+
+    public bool IsQuestComplete(string questID)
+    {
+        if (quests.ContainsKey(questID))
+        {
+            var quest = quests[questID];
+            
+            // Dialogue quest
+            if (quest.type == QuestType.Dialogue)
+            {
+                return quest.state == QuestState.Completed;
+            }
+            
+            // Kill/Collect quest
+            return quest.currentCount >= quest.targetCount;
+        }
+        return false;
+    }
+
+    // ========== HOÀN THÀNH QUEST ==========
+    
+    public void CompleteQuest(string questID)
+    {
+        if (quests.ContainsKey(questID))
+        {
+            quests[questID].state = QuestState.Completed;
+            Debug.Log($"[Quest] Completed: {questID}");
+        }
+    }
+
+    // ========== UI & REWARD ==========
+    
+    public void ResetQuest(string questID) {
+    if (quests.ContainsKey(questID)) {
+        quests[questID].state = QuestState.NotStarted;
+        quests[questID].currentCount = 0;
+    }
+    Debug.Log($"[RESET] {questID} reset");
+}
+
     public void ShowQuestUI(string message)
     {
         QuestUI.Instance.ShowQuest(message);
         Debug.Log($"[Quest UI] {message}");
     }
 
-    // Tặng thưởng
     public void GiveReward(string rewardType, int amount)
     {
         Debug.Log($"[Reward] +{amount} {rewardType}");
@@ -106,6 +257,10 @@ public class QuestManager : MonoBehaviour
         else if (rewardType == "potion")
         {
             // PlayerInventory.AddPotion(amount);
+        }
+        else if (rewardType == "sword")
+        {
+            // PlayerInventory.AddWeapon("sword");
         }
     }
 }

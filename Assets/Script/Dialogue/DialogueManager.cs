@@ -109,54 +109,67 @@ public class DialogueManager : MonoBehaviour
     }
 
     // ========== GENERIC TAG HANDLER ==========
-    private void HandleTags(List<string> tags)
+ private void HandleTags(List<string> tags)
+{
+    foreach (string tag in tags)
     {
-        foreach (string tag in tags)
+        Debug.Log($"[Tag] {tag}");
+        
+        string[] parts = tag.Split(':');
+        string command = parts[0].Trim();
+
+        // ========== COLLECT QUEST (ƯU TIÊN) ==========
+        if (command == "COLLECT_QUEST" && parts.Length >= 4)
         {
-            Debug.Log($"[Tag] {tag}");
+            string questID = parts[1].Trim();
+            string itemName = parts[2].Trim();
+            int count = int.Parse(parts[3].Trim());
             
-            // Parse tag theo format: COMMAND:param1:param2:...
-            string[] parts = tag.Split(':');
-            string command = parts[0].Trim();
+            Debug.Log($"[Dialogue] Starting Collect Quest: {questID} - {itemName} x{count}");
+            QuestManager.Instance.StartCollectQuest(questID, itemName, count);
+        }
 
-            // QUEST_START:C
-            if (command == "QUEST_START" && parts.Length >= 2)
-            {
-                string questID = parts[1].Trim();
-                QuestManager.Instance.StartQuest(questID);
-            }
+        // ========== KILL QUEST ==========
+        else if (command == "KILL_QUEST" && parts.Length >= 4)
+        {
+            string questID = parts[1].Trim();
+            string enemyName = parts[2].Trim();
+            int count = int.Parse(parts[3].Trim());
+            QuestManager.Instance.StartKillQuest(questID, enemyName, count);
+        }
 
-            // QUEST_PROGRESS:C:3 (set quest C to state 3)
-            else if (command == "QUEST_PROGRESS" && parts.Length >= 3)
-            {
-                string questID = parts[1].Trim();
-                int newState = int.Parse(parts[2].Trim());
-                QuestManager.Instance.SetQuestState(questID, newState);
-            }
+        // ========== QUEST COMPLETE ==========
+        else if (command == "QUEST_COMPLETE" && parts.Length >= 2)
+        {
+            string questID = parts[1].Trim();
+            QuestManager.Instance.SetQuestState(questID, 2); // State 2 = WaitingReport
+            Debug.Log($"[Dialogue] Quest {questID} marked as complete (State 2)");
+        }
 
-            // QUEST_COMPLETE:C
-            else if (command == "QUEST_COMPLETE" && parts.Length >= 2)
-            {
-                string questID = parts[1].Trim();
-                QuestManager.Instance.CompleteQuest(questID);
-            }
+        // ========== REWARD ==========
+        else if (command == "REWARD" && parts.Length >= 3)
+        {
+            string rewardType = parts[1].Trim();
+            int amount = int.Parse(parts[2].Trim());
+            QuestManager.Instance.GiveReward(rewardType, amount);
+        }
 
-            // SHOW_UI:Your message here
-            else if (command == "SHOW_UI" && parts.Length >= 2)
-            {
-                string message = string.Join(":", parts, 1, parts.Length - 1).Trim();
-                QuestManager.Instance.ShowQuestUI(message);
-            }
+        // ========== QUEST PROGRESS ==========
+        else if (command == "QUEST_PROGRESS" && parts.Length >= 3)
+        {
+            string questID = parts[1].Trim();
+            int newState = int.Parse(parts[2].Trim());
+            QuestManager.Instance.SetQuestState(questID, newState);
+        }
 
-            // REWARD:gold:100 hoặc REWARD:potion:1
-            else if (command == "REWARD" && parts.Length >= 3)
-            {
-                string rewardType = parts[1].Trim();
-                int amount = int.Parse(parts[2].Trim());
-                QuestManager.Instance.GiveReward(rewardType, amount);
-            }
+        // ========== SHOW UI ==========
+        else if (command == "SHOW_UI" && parts.Length >= 2)
+        {
+            string message = string.Join(":", parts, 1, parts.Length - 1).Trim();
+            QuestManager.Instance.ShowQuestUI(message);
         }
     }
+}
 
     private void DisplayChoices()
     {
