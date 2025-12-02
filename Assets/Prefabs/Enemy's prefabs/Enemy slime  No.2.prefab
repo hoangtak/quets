@@ -19,7 +19,7 @@ GameObject:
   - component: {fileID: 3287668060869405209}
   - component: {fileID: 3148595168769222412}
   m_Layer: 2
-  m_Name: Enemy Test slime  No.2
+  m_Name: Enemy slime  No.2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿﻿using System.Collections.Generic;
 using System.Collections;
 using UnityEngine;
 using TMPro;
@@ -15,9 +15,6 @@ public class DialogueManager : MonoBehaviour
     [SerializeField] private GameObject[] choices;
     private TextMeshProUGUI[] choicesText;
 
-    // Lưu lại story theo từng file JSON để không mất trạng thái
-    private Dictionary<TextAsset, Story> storyCache = new Dictionary<TextAsset, Story>();
-
     private Story currentStory;
     public bool dialogueIsPlaying { get; private set; }
 
@@ -27,7 +24,7 @@ public class DialogueManager : MonoBehaviour
     {
         if (instance != null)
         {
-            Debug.LogWarning("có nhiều hơn 1 dialogue manager trong scene");
+            Debug.LogWarning("Có nhiều hơn 1 dialogue manager trong scene");
         }
         instance = this;
     }
@@ -64,24 +61,30 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-public void EnterDialogueMode(TextAsset inkJSON)
-{
-    // KHÔNG tạo story mới nếu đã có
-    if (!storyCache.ContainsKey(inkJSON))
+    public void EnterDialogueMode(TextAsset inkJSON)
     {
-        storyCache[inkJSON] = new Story(inkJSON.text);
+        currentStory = new Story(inkJSON.text);
+        
+        // Bind external function
+        currentStory.BindExternalFunction("get_quest_state", (string quest_id) => 
+        {
+            int state = QuestManager.Instance.GetQuestState(quest_id);
+            Debug.Log($"[Ink] get_quest_state({quest_id}) = {state}");
+            return state;
+        });
+        
+        dialogueIsPlaying = true;
+        dialoguePanel.SetActive(true);
+        
+        if (currentStory.canContinue)
+        {
+            ContinueStory();
+        }
+        else
+        {
+            StartCoroutine(ExitDialogueMode());
+        }
     }
-
-    currentStory = storyCache[inkJSON];
-
-    dialogueIsPlaying = true;
-    dialoguePanel.SetActive(true);
-
-    // 🔥 QUAN TRỌNG: luôn quay về knot npc_start khi bắt đầu tương tác
-    currentStory.ChoosePathString("npc_start");
-
-    ContinueStory();
-}
 
     private IEnumerator ExitDialogueMode()
     {
@@ -96,11 +99,62 @@ public void EnterDialogueMode(TextAsset inkJSON)
         if (currentStory.canContinue)
         {
             dialogueText.text = currentStory.Continue();
+            HandleTags(currentStory.currentTags);
             DisplayChoices();
         }
         else
         {
             StartCoroutine(ExitDialogueMode());
+        }
+    }
+
+    // ========== GENERIC TAG HANDLER ==========
+    private void HandleTags(List<string> tags)
+    {
+        foreach (string tag in tags)
+        {
+            Debug.Log($"[Tag] {tag}");
+            
+            // Parse tag theo format: COMMAND:param1:param2:...
+            string[] parts = tag.Split(':');
+            string command = parts[0].Trim();
+
+            // QUEST_START:C
+            if (command == "QUEST_START" && parts.Length >= 2)
+            {
+                string questID = parts[1].Trim();
+                QuestManager.Instance.StartQuest(questID);
+            }
+
+            // QUEST_PROGRESS:C:3 (set quest C to state 3)
+            else if (command == "QUEST_PROGRESS" && parts.Length >= 3)
+            {
+                string questID = parts[1].Trim();
+                int newState = int.Parse(parts[2].Trim());
+                QuestManager.Instance.SetQuestState(questID, newState);
+            }
+
+            // QUEST_COMPLETE:C
+            else if (command == "QUEST_COMPLETE" && parts.Length >= 2)
+            {
+                string questID = parts[1].Trim();
+                QuestManager.Instance.CompleteQuest(questID);
+            }
+
+            // SHOW_UI:Your message here
+            else if (command == "SHOW_UI" && parts.Length >= 2)
+            {
+                string message = string.Join(":", parts, 1, parts.Length - 1).Trim();
+                QuestManager.Instance.ShowQuestUI(message);
+            }
+
+            // REWARD:gold:100 hoặc REWARD:potion:1
+            else if (command == "REWARD" && parts.Length >= 3)
+            {
+                string rewardType = parts[1].Trim();
+                int amount = int.Parse(parts[2].Trim());
+                QuestManager.Instance.GiveReward(rewardType, amount);
+            }
         }
     }
 
