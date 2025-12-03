@@ -13,26 +13,16 @@ EXTERNAL get_quest_state(quest_id)
             -> END
     
     - 1:
-        "Ngươi đã thu thập được bao nhiêu thảo dược rồi?"
-        "Ta cần 5 cây Thảo Dược Đỏ để pha chế."
-        + [Cho tôi xem lại nhiệm vụ.]
-            "Được, hãy đi thu thập 5 cây Thảo Dược Đỏ."
-            "Chúng thường mọc ở khu rừng phía đông."
-            -> END
-        + [Tôi sẽ đi tìm ngay.]
-            "Tốt lắm! Hãy cẩn thận nhé."
-            -> END
+        #CHECK_QUEST:HERB
+        { get_quest_state("HERB"):
+            - 2:
+                -> complete_quest
+            - else:
+                -> state_1_dialogue
+        }
     
     - 2:
-        #QUEST_COMPLETE:HERB
-        #REWARD:gold:100
-        #REWARD:potion:3
-        "Ah! Ngươi đã thu thập đủ rồi!"
-        "Để ta xem... Ồ, chất lượng tuyệt vời!"
-        "Với những nguyên liệu này, ta có thể cứu được nhiều người."
-        "Đây là phần thưởng xứng đáng cho ngươi!"
-        "Ngươi nhận được 100 vàng và 3 bình thuốc hồi máu!"
-        -> END
+        -> complete_quest
     
     - 5:
         "Cảm ơn ngươi đã giúp đỡ!"
@@ -54,7 +44,6 @@ EXTERNAL get_quest_state(quest_id)
 "Loại thảo dược này rất hiếm, chúng chỉ mọc ở khu rừng sâu."
 + [Tôi cần thu thập bao nhiêu?]
     #COLLECT_QUEST:HERB:Thảo Dược Đỏ:5
-
     "Ta cần 5 cây Thảo Dược Đỏ."
     "Chúng thường mọc gần các tảng đá ở khu rừng phía đông."
     "Hãy cẩn thận, khu đó có nhiều quái vật!"
@@ -63,6 +52,29 @@ EXTERNAL get_quest_state(quest_id)
     "Ồ... vậy à."
     "Nếu ngươi đổi ý, hãy quay lại gặp ta nhé."
     -> END
+
+=== state_1_dialogue ===
+"Ngươi đã thu thập được bao nhiêu thảo dược rồi?"
+"Ta cần 5 cây Thảo Dược Đỏ để pha chế."
++ [Cho tôi xem lại nhiệm vụ.]
+    "Được, hãy đi thu thập 5 cây Thảo Dược Đỏ."
+    "Chúng thường mọc gần các tảng đá ở khu rừng phía đông."
+    -> END
++ [Tôi sẽ đi tìm ngay.]
+    "Tốt lắm! Hãy cẩn thận nhé."
+    -> END
+
+=== complete_quest ===
+#REMOVE_ITEMS:Thảo Dược Đỏ:5
+#QUEST_COMPLETE:HERB
+#REWARD:gold:100
+#REWARD:potion:3
+"Ah! Ngươi đã thu thập đủ rồi!"
+"Để ta xem... Ồ, chất lượng tuyệt vời!"
+"Với những nguyên liệu này, ta có thể cứu được nhiều người."
+"Đây là phần thưởng xứng đáng cho ngươi!"
+"Ngươi nhận được 100 vàng và 3 bình thuốc hồi máu!"
+-> END
 
 === check_new_quest ===
 "Hmm... thực ra ta còn cần thêm vài thứ nữa."

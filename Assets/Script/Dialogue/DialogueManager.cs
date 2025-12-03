@@ -109,7 +109,7 @@ public class DialogueManager : MonoBehaviour
     }
 
     // ========== GENERIC TAG HANDLER ==========
- private void HandleTags(List<string> tags)
+private void HandleTags(List<string> tags)
 {
     foreach (string tag in tags)
     {
@@ -128,7 +128,59 @@ public class DialogueManager : MonoBehaviour
             Debug.Log($"[Dialogue] Starting Collect Quest: {questID} - {itemName} x{count}");
             QuestManager.Instance.StartCollectQuest(questID, itemName, count);
         }
-
+        
+        // ========== CHECK QUEST (MỚI) ==========
+        else if (command == "CHECK_QUEST" && parts.Length >= 2)
+        {
+            string questID = parts[1].Trim();
+            
+            if (QuestManager.Instance.quests.ContainsKey(questID))
+            {
+                var quest = QuestManager.Instance.quests[questID];
+                
+                // ✅ CHỈ KIỂM TRA NẾU QUEST ĐANG Ở STATE InProgress (1)
+                if (quest.state == QuestState.InProgress)
+                {
+                    // Đếm lại item trong inventory
+                    int inventoryCount = QuestInventoryManager.Instance.CountItem(quest.targetName);
+                    quest.currentCount = inventoryCount;
+                    
+                    Debug.Log($"[Dialogue] Checking {questID}: {inventoryCount}/{quest.targetCount} in inventory");
+                    
+                    // Nếu đủ → chuyển state sang WaitingReport
+                    if (inventoryCount >= quest.targetCount)
+                    {
+                        quest.state = QuestState.WaitingReport;
+                        QuestManager.Instance.ShowQuestUI($"Đã có đủ {quest.targetName}! Hãy nộp cho NPC");
+                        Debug.Log($"[Quest] {questID} completed after inventory check!");
+                    }
+                    else
+                    {
+                        QuestManager.Instance.ShowQuestUI($"Chưa đủ: {inventoryCount}/{quest.targetCount} {quest.targetName}");
+                        Debug.Log($"[Quest] {questID} not complete: {inventoryCount}/{quest.targetCount}");
+                    }
+                }
+                else if (quest.state == QuestState.WaitingReport)
+                {
+                    // ✅ NẾU ĐÃ Ở STATE 2 (WaitingReport) → KHÔNG LÀM GÌ CẢ
+                    Debug.Log($"[Quest] {questID} already completed, waiting for NPC dialogue");
+                }
+                else
+                {
+                    Debug.Log($"[Quest] {questID} is in state {quest.state}, no check needed");
+                }
+            }
+        }
+        // ========== REMOVE ITEMS ==========
+        else if (command == "REMOVE_ITEMS" && parts.Length >= 3)
+        {
+            string itemName = parts[1].Trim();
+            int amount = int.Parse(parts[2].Trim());
+            
+            QuestInventoryManager.Instance.RemoveItems(itemName, amount);
+            Debug.Log($"[Dialogue] Removed {amount}x {itemName} from inventory");
+        }
+        
         // ========== KILL QUEST ==========
         else if (command == "KILL_QUEST" && parts.Length >= 4)
         {
@@ -142,8 +194,8 @@ public class DialogueManager : MonoBehaviour
         else if (command == "QUEST_COMPLETE" && parts.Length >= 2)
         {
             string questID = parts[1].Trim();
-            QuestManager.Instance.SetQuestState(questID, 2); // State 2 = WaitingReport
-            Debug.Log($"[Dialogue] Quest {questID} marked as complete (State 2)");
+            QuestManager.Instance.SetQuestState(questID, 5); 
+            Debug.Log($"[Dialogue] Quest {questID} fully completed (State 5)");
         }
 
         // ========== REWARD ==========

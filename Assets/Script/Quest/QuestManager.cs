@@ -37,7 +37,7 @@ public class QuestManager : MonoBehaviour
     public static QuestManager Instance;
 
     // Dictionary lưu tất cả quest
-    private Dictionary<string, QuestData> quests = new Dictionary<string, QuestData>();
+    public Dictionary<string, QuestData> quests = new Dictionary<string, QuestData>();
 
     private void Awake()
     {
@@ -145,18 +145,32 @@ public void InitQuest(string questID, QuestType type = QuestType.Dialogue)
 
     // ========== COLLECT QUEST (MỚI) ==========
     
-    public void StartCollectQuest(string questID, string itemName, int targetCount)
+public void StartCollectQuest(string questID, string itemName, int targetCount)
+{
+    InitQuest(questID, QuestType.Collect);
+    
+    quests[questID].state = QuestState.InProgress;
+    quests[questID].targetName = itemName;
+    quests[questID].targetCount = targetCount;
+    
+    // ✅ KIỂM TRA INVENTORY TRƯỚC KHI BẮT ĐẦU
+    int inventoryCount = QuestInventoryManager.Instance.CountItem(itemName);
+    quests[questID].currentCount = inventoryCount;  // Đặt count = số đã có
+    
+    Debug.Log($"[Quest] Collect Quest Started: {questID} - {itemName} ({inventoryCount}/{targetCount} already collected)");
+    
+    // ✅ NẾU ĐÃ ĐỦ → HOÀN THÀNH LUÔN
+    if (inventoryCount >= targetCount)
     {
-        InitQuest(questID, QuestType.Collect);
-        
-        quests[questID].state = QuestState.InProgress;
-        quests[questID].targetName = itemName;
-        quests[questID].targetCount = targetCount;
-        quests[questID].currentCount = 0;
-        
-        ShowQuestUI($"Thu thập {itemName}: 0/{targetCount}");
-        Debug.Log($"[Quest] Collect Quest Started: {questID} - Collect {targetCount} {itemName}");
+        quests[questID].state = QuestState.WaitingReport;
+        ShowQuestUI($"Đã có đủ {itemName}! Hãy nộp cho NPC");
+        Debug.Log($"[Quest] {questID} auto-completed! (Had {inventoryCount}/{targetCount})");
     }
+    else
+    {
+        ShowQuestUI($"Thu thập {itemName}: {inventoryCount}/{targetCount}");
+    }
+}
 
 public void OnItemCollected(string itemName)
 {
